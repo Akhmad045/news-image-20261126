@@ -1,37 +1,36 @@
-#!/usr/bin/env python3
-"""Entry program: copy the front-page image to /output/entry.png.
+"""Write the 26 November front page to /output/entry.png.
 
-Standard library only. Deterministic: the same bytes every run.
-Verifies the copy is byte-identical to the shipped image (PNG magic,
-size and sha256) before finishing.
+The picture itself ships in this repository as entry.png; this
+program only moves those bytes to the grading location and checks
+the move landed intact. Only the standard library is used, so the
+same input always yields the same output bytes.
 """
-import hashlib
-import os
-import shutil
-from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-OUT = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")) / "entry.png"
-PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+from hashlib import sha256 as digest
+import pathlib
 
-
-def sha256(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+SOURCE = pathlib.Path(__file__).resolve().parent / "entry.png"
+TARGET = pathlib.Path("/output/entry.png")
+MAGIC = bytes((0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A))
+LIMIT = 1024 * 1024
 
 
-def main():
-    src = HERE / "entry.png"
-    data = src.read_bytes()
-    if not data.startswith(PNG_MAGIC):
-        raise SystemExit("entry.png is not a PNG")
-    if len(data) > 1048576:
-        raise SystemExit("entry.png exceeds 1 MiB")
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(src, OUT)
-    if sha256(OUT) != sha256(src):
-        raise SystemExit("copied image is not byte-identical")
-    print(f"wrote {OUT} ({len(data)} bytes, sha256 {sha256(src)[:16]}...)")
+def fingerprint(blob):
+    return digest(blob).hexdigest()
 
 
-if __name__ == "__main__":
-    main()
+def run():
+    blob = SOURCE.read_bytes()
+    if blob[:8] != MAGIC:
+        raise SystemExit("entry.png does not start with the PNG signature")
+    if len(blob) > LIMIT:
+        raise SystemExit("entry.png is larger than the 1 MiB cap")
+    TARGET.parent.mkdir(parents=True, exist_ok=True)
+    TARGET.write_bytes(blob)
+    if fingerprint(TARGET.read_bytes()) != fingerprint(blob):
+        raise SystemExit("the written file differs from the shipped image")
+    print("entry.png ->", TARGET, len(blob), "bytes, sha256",
+          fingerprint(blob)[:16])
+
+
+run()
