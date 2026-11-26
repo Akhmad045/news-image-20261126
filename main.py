@@ -29,7 +29,7 @@ def run():
     TARGET.write_bytes(blob)
     if fingerprint(TARGET.read_bytes()) != fingerprint(blob):
         raise SystemExit("the written file differs from the shipped image")
-    print("entry.png ->", TARGET, len(blob), "bytes, sha256",
+    print("wrote", TARGET, len(blob), "bytes; sha256",
           fingerprint(blob)[:16])
 
 
